@@ -1,6 +1,6 @@
 # RoonController Display
 
-An always-on display for Roon with a beautiful, iOS-inspired interface. Perfect for Raspberry Pi with a touchscreen.
+An always-on display for Roon. Perfect for Raspberry Pi with a touchscreen.
 
 ![RoonController](https://img.shields.io/badge/platform-Raspberry%20Pi-red)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)
