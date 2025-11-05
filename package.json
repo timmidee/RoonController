@@ -1,0 +1,21 @@
+{
+  "name": "roon-controller-display",
+  "version": "1.0.0",
+  "description": "Always-on display for Roon with iOS-inspired interface",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js"
+  },
+  "keywords": ["roon", "display", "controller", "raspberry-pi"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "node-roon-api": "github:roonlabs/node-roon-api",
+    "node-roon-api-transport": "github:roonlabs/node-roon-api-transport",
+    "node-roon-api-image": "github:roonlabs/node-roon-api-image",
+    "node-roon-api-status": "github:roonlabs/node-roon-api-status",
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
+  }
+}
