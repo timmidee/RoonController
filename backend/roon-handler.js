@@ -245,6 +245,21 @@ class RoonHandler {
     }
   }
 
+  seek(seconds) {
+    if (!this.transport || !this.currentZone) {
+      console.warn('Cannot seek: not connected or no zone selected');
+      return;
+    }
+
+    if (!this.currentZone.is_seek_allowed) {
+      console.warn('Seeking is not allowed for this zone');
+      return;
+    }
+
+    console.log(`Seeking to ${seconds} seconds in zone: ${this.currentZone.display_name}`);
+    this.transport.seek(this.currentZone, 'absolute', seconds);
+  }
+
   getImage(imageKey, options, callback) {
     if (!this.image) {
       callback('Not connected to Roon', null, null);

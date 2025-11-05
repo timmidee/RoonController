@@ -5,6 +5,11 @@ let state = null;
 let zones = [];
 let progressInterval = null;
 
+// Inactivity tracking for "away mode"
+let inactivityTimeout = null;
+let isAwayMode = false;
+const INACTIVITY_DELAY = 5000; // 5 seconds
+
 // DOM elements
 const elements = {
   status: document.getElementById('connection-status'),
@@ -19,6 +24,7 @@ const elements = {
   trackAlbum: document.getElementById('track-album'),
   timeElapsed: document.getElementById('time-elapsed'),
   timeRemaining: document.getElementById('time-remaining'),
+  progressContainer: document.getElementById('progress-container'),
   progressFill: document.getElementById('progress-fill'),
   btnPrevious: document.getElementById('btn-previous'),
   btnPlayPause: document.getElementById('btn-play-pause'),
@@ -336,6 +342,10 @@ function selectZone(zoneId) {
   sendCommand('select_zone', { zoneId });
 }
 
+function seek(seconds) {
+  sendCommand('seek', { seconds });
+}
+
 // Event listeners
 elements.btnPlayPause.addEventListener('click', playPause);
 elements.btnPrevious.addEventListener('click', previous);
@@ -362,12 +372,119 @@ elements.zoneButton.addEventListener('click', (e) => {
   elements.zoneDropdown.classList.toggle('hidden');
 });
 
+// Progress bar drag/click to seek
+let isDragging = false;
+let dragStarted = false;
+
+function calculateSeekPosition(e, progressBar) {
+  const rect = progressBar.getBoundingClientRect();
+  const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+  const clickX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+  const percentage = clickX / rect.width;
+  return percentage * state.nowPlaying.length;
+}
+
+function handleSeekStart(e) {
+  if (!state || !state.nowPlaying || !state.nowPlaying.length) return;
+  if (state.controls && state.controls.is_seek_allowed === false) return;
+
+  isDragging = true;
+  dragStarted = false;
+  stopProgressUpdates();  // Pause automatic progress updates while dragging
+  e.preventDefault();
+}
+
+function handleSeekMove(e) {
+  if (!isDragging || !state || !state.nowPlaying) return;
+
+  dragStarted = true;
+  const progressBar = elements.progressContainer.querySelector('.progress-bar');
+  const seekPosition = calculateSeekPosition(e, progressBar);
+
+  // Update local state for visual feedback
+  state.nowPlaying.seek_position = Math.floor(seekPosition);
+  updateProgress();
+  e.preventDefault();
+}
+
+function handleSeekEnd(e) {
+  if (!isDragging) return;
+
+  const wasDragging = dragStarted;
+  isDragging = false;
+  dragStarted = false;
+
+  if (!state || !state.nowPlaying || !state.nowPlaying.length) return;
+  if (state.controls && state.controls.is_seek_allowed === false) return;
+
+  const progressBar = elements.progressContainer.querySelector('.progress-bar');
+  const seekPosition = calculateSeekPosition(e.type.includes('touch') ? e.changedTouches[0] : e, progressBar);
+
+  // Update local state immediately for visual feedback
+  state.nowPlaying.seek_position = Math.floor(seekPosition);
+  updateProgress();
+
+  console.log('Seeking to:', Math.floor(seekPosition), 'seconds');
+  seek(Math.floor(seekPosition));
+
+  // Resume automatic progress updates if playing
+  if (state.state === 'playing') {
+    startProgressUpdates();
+  }
+
+  e.preventDefault();
+}
+
+// Mouse events
+elements.progressContainer.addEventListener('mousedown', handleSeekStart);
+document.addEventListener('mousemove', handleSeekMove);
+document.addEventListener('mouseup', handleSeekEnd);
+
+// Touch events
+elements.progressContainer.addEventListener('touchstart', handleSeekStart, { passive: false });
+document.addEventListener('touchmove', handleSeekMove, { passive: false });
+document.addEventListener('touchend', handleSeekEnd, { passive: false });
+
 // Close zone dropdown when clicking outside
 document.addEventListener('click', (e) => {
   if (!elements.zoneButton.contains(e.target) && !elements.zoneDropdown.contains(e.target)) {
     elements.zoneDropdown.classList.add('hidden');
   }
 });
+
+// Away mode functions
+function enterAwayMode() {
+  isAwayMode = true;
+  document.body.classList.add('away-mode');
+}
+
+function exitAwayMode() {
+  isAwayMode = false;
+  document.body.classList.remove('away-mode');
+}
+
+function resetInactivityTimer() {
+  // Clear existing timeout
+  if (inactivityTimeout) {
+    clearTimeout(inactivityTimeout);
+  }
+
+  // Exit away mode if we're in it
+  if (isAwayMode) {
+    exitAwayMode();
+  }
+
+  // Set new timeout
+  inactivityTimeout = setTimeout(() => {
+    enterAwayMode();
+  }, INACTIVITY_DELAY);
+}
+
+// Track user activity
+document.addEventListener('mousedown', resetInactivityTimer);
+document.addEventListener('mousemove', resetInactivityTimer);
+document.addEventListener('touchstart', resetInactivityTimer);
+document.addEventListener('keydown', resetInactivityTimer);
 
 // Prevent screen from sleeping
 function preventSleep() {
@@ -382,6 +499,7 @@ function preventSleep() {
 window.addEventListener('load', () => {
   connect();
   preventSleep();
+  resetInactivityTimer(); // Start inactivity tracking
 });
 
 // Cleanup on page unload

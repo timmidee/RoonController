@@ -96,6 +96,10 @@ function handleClientMessage(ws, data) {
       roonHandler.mute(payload.action);
       break;
 
+    case 'seek':
+      roonHandler.seek(payload.seconds);
+      break;
+
     default:
       console.warn('Unknown message type:', type);
   }

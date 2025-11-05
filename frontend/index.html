@@ -41,82 +41,89 @@
       </div>
     </div>
 
-    <!-- Now Playing Info -->
-    <div id="now-playing" class="now-playing">
-      <h1 id="track-title" class="track-title">Not Playing</h1>
-      <p id="track-artist" class="track-artist">—</p>
-      <p id="track-album" class="track-album"></p>
-    </div>
-
-    <!-- Progress Bar -->
-    <div id="progress-container" class="progress-container">
-      <span id="time-elapsed" class="time-label">0:00</span>
-      <div class="progress-bar">
-        <div id="progress-fill" class="progress-fill"></div>
-      </div>
-      <span id="time-remaining" class="time-label">0:00</span>
-    </div>
-
-    <!-- Transport Controls -->
-    <div id="controls" class="controls">
-      <button id="btn-previous" class="control-button" disabled>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M19 6L9 12L19 18V6Z" fill="currentColor"/>
-          <path d="M7 6H5V18H7V6Z" fill="currentColor"/>
-        </svg>
-      </button>
-
-      <button id="btn-play-pause" class="control-button control-button-primary" disabled>
-        <svg id="icon-play" width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <path d="M8 6V22L22 14L8 6Z" fill="currentColor"/>
-        </svg>
-        <svg id="icon-pause" width="28" height="28" viewBox="0 0 28 28" fill="none" class="hidden">
-          <path d="M9 6H12V22H9V6Z" fill="currentColor"/>
-          <path d="M16 6H19V22H16V6Z" fill="currentColor"/>
-        </svg>
-      </button>
-
-      <button id="btn-next" class="control-button" disabled>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M5 18L15 12L5 6V18Z" fill="currentColor"/>
-          <path d="M17 6H19V18H17V6Z" fill="currentColor"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Volume Control -->
-    <div id="volume-container" class="volume-container">
-      <button id="btn-volume-down" class="volume-button">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/>
-          <path d="M13 8C13.6 8.6 14 9.3 14 10C14 10.7 13.6 11.4 13 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-
-      <div class="volume-slider-container">
-        <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="50">
-        <div id="volume-fill" class="volume-fill"></div>
+    <!-- Controls Container for Wide Screens -->
+    <div class="controls-wrapper">
+      <!-- Now Playing Info -->
+      <div id="now-playing" class="now-playing">
+        <h1 class="track-title">
+          <span id="track-title" class="track-title-inner">Not Playing</span>
+        </h1>
+        <p class="track-artist">
+          <span id="track-artist" class="track-artist-inner">—</span>
+        </p>
+        <p id="track-album" class="track-album"></p>
       </div>
 
-      <button id="btn-volume-up" class="volume-button">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/>
-          <path d="M13 8C13.6 8.6 14 9.3 14 10C14 10.7 13.6 11.4 13 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M15.5 6C16.5 7 17.5 8.5 17.5 10C17.5 11.5 16.5 13 15.5 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+      <!-- Progress Bar -->
+      <div id="progress-container" class="progress-container">
+        <span id="time-elapsed" class="time-label">0:00</span>
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <span id="time-remaining" class="time-label">0:00</span>
+      </div>
 
-      <button id="btn-mute" class="volume-button">
-        <svg id="icon-mute" width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/>
-          <path d="M15 7L19 11M19 7L15 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        <svg id="icon-unmute" width="20" height="20" viewBox="0 0 20 20" fill="none" class="hidden">
-          <path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/>
-        </svg>
-      </button>
+      <!-- Transport Controls -->
+      <div id="controls" class="controls">
+        <button id="btn-previous" class="control-button" disabled>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M19 6L9 12L19 18V6Z" fill="currentColor"/>
+            <path d="M7 6H5V18H7V6Z" fill="currentColor"/>
+          </svg>
+        </button>
 
-      <span id="volume-value" class="volume-value">50%</span>
+        <button id="btn-play-pause" class="control-button control-button-primary" disabled>
+          <svg id="icon-play" width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M8 6V22L22 14L8 6Z" fill="currentColor"/>
+          </svg>
+          <svg id="icon-pause" width="28" height="28" viewBox="0 0 28 28" fill="none" class="hidden">
+            <path d="M9 6H12V22H9V6Z" fill="currentColor"/>
+            <path d="M16 6H19V22H16V6Z" fill="currentColor"/>
+          </svg>
+        </button>
+
+        <button id="btn-next" class="control-button" disabled>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M5 18L15 12L5 6V18Z" fill="currentColor"/>
+            <path d="M17 6H19V18H17V6Z" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Volume Control -->
+      <div id="volume-container" class="volume-container">
+        <button id="btn-volume-down" class="volume-button">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/>
+            <path d="M13 8C13.6 8.6 14 9.3 14 10C14 10.7 13.6 11.4 13 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="volume-slider-container">
+          <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="50">
+          <div id="volume-fill" class="volume-fill"></div>
+        </div>
+
+        <button id="btn-volume-up" class="volume-button">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/>
+            <path d="M13 8C13.6 8.6 14 9.3 14 10C14 10.7 13.6 11.4 13 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15.5 6C16.5 7 17.5 8.5 17.5 10C17.5 11.5 16.5 13 15.5 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <button id="btn-mute" class="volume-button">
+          <svg id="icon-mute" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/>
+            <path d="M15 7L19 11M19 7L15 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <svg id="icon-unmute" width="20" height="20" viewBox="0 0 20 20" fill="none" class="hidden">
+            <path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/>
+          </svg>
+        </button>
+
+        <span id="volume-value" class="volume-value">50%</span>
+      </div>
     </div>
   </div>
 
