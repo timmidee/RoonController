@@ -356,11 +356,11 @@ elements.volumeSlider.addEventListener('input', (e) => {
   if (state && state.volume) {
     const percentage = ((value - state.volume.min) / (state.volume.max - state.volume.min)) * 100;
     elements.volumeFill.style.width = `${percentage}%`;
-  }
-});
+    elements.volumeValue.textContent = `${Math.round(value)}%`;
 
-elements.volumeSlider.addEventListener('change', (e) => {
-  setVolume(e.target.value);
+    // Send volume change in real-time as user drags
+    setVolume(value);
+  }
 });
 
 elements.btnVolumeDown.addEventListener('click', () => adjustVolume(-2.5));
