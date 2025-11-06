@@ -5,6 +5,7 @@ package-lock.json
 # Roon configuration
 .roon/
 config/
+config.json
 
 # Logs
 logs/
