@@ -104,8 +104,13 @@ class RoonHandler {
         }
 
         if (data.zones_removed) {
-          const removedIds = data.zones_removed.map(z => z.zone_id);
+          console.log('Zones removed event received:', data.zones_removed);
+          // zones_removed is an array of zone_id strings, not objects
+          const removedIds = data.zones_removed;
+          console.log('Removing zone IDs:', removedIds);
+          console.log('Zones before removal:', this.zones.length);
           this.zones = this.zones.filter(z => !removedIds.includes(z.zone_id));
+          console.log('Zones after removal:', this.zones.length);
 
           // If current zone was removed, select first available
           if (this.currentZone && removedIds.includes(this.currentZone.zone_id)) {
