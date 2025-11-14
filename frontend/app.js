@@ -361,6 +361,9 @@ elements.volumeSlider.addEventListener('input', (e) => {
     // Send volume change in real-time as user drags
     setVolume(value);
   }
+
+  // Prevent away mode while adjusting volume
+  resetInactivityTimer();
 });
 
 elements.btnVolumeDown.addEventListener('click', () => adjustVolume(-2.5));
