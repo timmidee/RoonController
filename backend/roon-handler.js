@@ -9,7 +9,7 @@ class RoonHandler {
     this.transport = null;
     this.image = null;
     this.zones = [];
-    this.currentZone = null;
+    this.clientZones = new Map(); // Map of clientId -> zoneId
     this.updateCallback = null;
     this.zonesUpdateCallback = null;
 
@@ -42,7 +42,7 @@ class RoonHandler {
         this.transport = null;
         this.image = null;
         this.zones = [];
-        this.currentZone = null;
+        this.clientZones.clear();
       }
     });
 
@@ -67,16 +67,7 @@ class RoonHandler {
     this.transport.subscribe_zones((cmd, data) => {
       if (cmd === 'Subscribed') {
         this.zones = data.zones || [];
-
-        // Select first zone by default or restore saved zone
-        if (this.zones.length > 0) {
-          const savedZoneId = this.roon.load_config('selected_zone_id');
-          const savedZone = this.zones.find(z => z.zone_id === savedZoneId);
-          this.currentZone = savedZone || this.zones[0];
-        }
-
         console.log(`Subscribed to ${this.zones.length} zones`);
-        this.notifyUpdate();
         this.notifyZonesUpdate();
       } else if (cmd === 'Changed') {
         let zonesListChanged = false;
@@ -87,14 +78,10 @@ class RoonHandler {
             const index = this.zones.findIndex(z => z.zone_id === changedZone.zone_id);
             if (index !== -1) {
               this.zones[index] = changedZone;
-
-              // Update current zone if it changed
-              if (this.currentZone && this.currentZone.zone_id === changedZone.zone_id) {
-                this.currentZone = changedZone;
-              }
             }
           });
-          this.notifyUpdate();
+          // Notify all clients with their respective zones
+          this.notifyAllClientsUpdate();
           zonesListChanged = true;
         }
 
@@ -108,12 +95,18 @@ class RoonHandler {
           const removedIds = data.zones_removed;
           this.zones = this.zones.filter(z => !removedIds.includes(z.zone_id));
 
-          // If current zone was removed, select first available
-          if (this.currentZone && removedIds.includes(this.currentZone.zone_id)) {
-            this.currentZone = this.zones.length > 0 ? this.zones[0] : null;
+          // Remove zone assignments for removed zones and reassign to first zone
+          for (const [clientId, zoneId] of this.clientZones.entries()) {
+            if (removedIds.includes(zoneId)) {
+              if (this.zones.length > 0) {
+                this.clientZones.set(clientId, this.zones[0].zone_id);
+              } else {
+                this.clientZones.delete(clientId);
+              }
+            }
           }
 
-          this.notifyUpdate();
+          this.notifyAllClientsUpdate();
           zonesListChanged = true;
         }
 
@@ -125,8 +118,11 @@ class RoonHandler {
     });
   }
 
-  getState() {
-    if (!this.currentZone) {
+  getState(clientId) {
+    const zoneId = this.clientZones.get(clientId);
+    const currentZone = zoneId ? this.zones.find(z => z.zone_id === zoneId) : null;
+
+    if (!currentZone) {
       return {
         connected: !!this.core,
         zone: null,
@@ -136,29 +132,29 @@ class RoonHandler {
       };
     }
 
-    const output = this.currentZone.outputs && this.currentZone.outputs[0];
+    const output = currentZone.outputs && currentZone.outputs[0];
 
     return {
       connected: !!this.core,
       zone: {
-        zone_id: this.currentZone.zone_id,
-        display_name: this.currentZone.display_name
+        zone_id: currentZone.zone_id,
+        display_name: currentZone.display_name
       },
-      nowPlaying: this.currentZone.now_playing ? {
-        title: this.currentZone.now_playing.three_line?.line1 || 'Unknown',
-        artist: this.currentZone.now_playing.three_line?.line2 || 'Unknown Artist',
-        album: this.currentZone.now_playing.three_line?.line3 || '',
-        image_key: this.currentZone.now_playing.image_key,
-        length: this.currentZone.now_playing.length,
-        seek_position: this.currentZone.now_playing.seek_position
+      nowPlaying: currentZone.now_playing ? {
+        title: currentZone.now_playing.three_line?.line1 || 'Unknown',
+        artist: currentZone.now_playing.three_line?.line2 || 'Unknown Artist',
+        album: currentZone.now_playing.three_line?.line3 || '',
+        image_key: currentZone.now_playing.image_key,
+        length: currentZone.now_playing.length,
+        seek_position: currentZone.now_playing.seek_position
       } : null,
-      state: this.currentZone.state,
+      state: currentZone.state,
       controls: {
-        is_play_allowed: this.currentZone.is_play_allowed,
-        is_pause_allowed: this.currentZone.is_pause_allowed,
-        is_previous_allowed: this.currentZone.is_previous_allowed,
-        is_next_allowed: this.currentZone.is_next_allowed,
-        is_seek_allowed: this.currentZone.is_seek_allowed
+        is_play_allowed: currentZone.is_play_allowed,
+        is_pause_allowed: currentZone.is_pause_allowed,
+        is_previous_allowed: currentZone.is_previous_allowed,
+        is_next_allowed: currentZone.is_next_allowed,
+        is_seek_allowed: currentZone.is_seek_allowed
       },
       volume: output && output.volume ? {
         value: output.volume.value,
@@ -192,8 +188,11 @@ class RoonHandler {
     return uniqueZones;
   }
 
-  control(command) {
-    if (!this.transport || !this.currentZone) {
+  control(clientId, command) {
+    const zoneId = this.clientZones.get(clientId);
+    const currentZone = zoneId ? this.zones.find(z => z.zone_id === zoneId) : null;
+
+    if (!this.transport || !currentZone) {
       console.warn('Cannot control: not connected or no zone selected');
       return;
     }
@@ -204,16 +203,19 @@ class RoonHandler {
       return;
     }
 
-    this.transport.control(this.currentZone, command);
+    this.transport.control(currentZone, command);
   }
 
-  setVolume(mode, value) {
-    if (!this.transport || !this.currentZone) {
+  setVolume(clientId, mode, value) {
+    const zoneId = this.clientZones.get(clientId);
+    const currentZone = zoneId ? this.zones.find(z => z.zone_id === zoneId) : null;
+
+    if (!this.transport || !currentZone) {
       console.warn('Cannot set volume: not connected or no zone selected');
       return;
     }
 
-    const output = this.currentZone.outputs && this.currentZone.outputs[0];
+    const output = currentZone.outputs && currentZone.outputs[0];
     if (!output || !output.volume) {
       console.warn('No volume control available for this zone');
       return;
@@ -222,13 +224,16 @@ class RoonHandler {
     this.transport.change_volume(output, mode, value);
   }
 
-  mute(action) {
-    if (!this.transport || !this.currentZone) {
+  mute(clientId, action) {
+    const zoneId = this.clientZones.get(clientId);
+    const currentZone = zoneId ? this.zones.find(z => z.zone_id === zoneId) : null;
+
+    if (!this.transport || !currentZone) {
       console.warn('Cannot mute: not connected or no zone selected');
       return;
     }
 
-    const output = this.currentZone.outputs && this.currentZone.outputs[0];
+    const output = currentZone.outputs && currentZone.outputs[0];
     if (!output || !output.volume) {
       console.warn('No volume control available for this zone');
       return;
@@ -237,28 +242,41 @@ class RoonHandler {
     this.transport.mute(output, action);
   }
 
-  selectZone(zoneId) {
+  selectZone(clientId, zoneId) {
     const zone = this.zones.find(z => z.zone_id === zoneId);
     if (zone) {
-      this.currentZone = zone;
-      this.roon.save_config('selected_zone_id', zoneId);
-      this.notifyUpdate();
+      this.clientZones.set(clientId, zoneId);
+      this.notifyClientUpdate(clientId);
     }
   }
 
-  seek(seconds) {
-    if (!this.transport || !this.currentZone) {
+  seek(clientId, seconds) {
+    const zoneId = this.clientZones.get(clientId);
+    const currentZone = zoneId ? this.zones.find(z => z.zone_id === zoneId) : null;
+
+    if (!this.transport || !currentZone) {
       console.warn('Cannot seek: not connected or no zone selected');
       return;
     }
 
-    if (!this.currentZone.is_seek_allowed) {
+    if (!currentZone.is_seek_allowed) {
       console.warn('Seeking is not allowed for this zone');
       return;
     }
 
-    console.log(`Seeking to ${seconds} seconds in zone: ${this.currentZone.display_name}`);
-    this.transport.seek(this.currentZone, 'absolute', seconds);
+    console.log(`Seeking to ${seconds} seconds in zone: ${currentZone.display_name}`);
+    this.transport.seek(currentZone, 'absolute', seconds);
+  }
+
+  registerClient(clientId) {
+    // Assign first zone by default if available
+    if (this.zones.length > 0 && !this.clientZones.has(clientId)) {
+      this.clientZones.set(clientId, this.zones[0].zone_id);
+    }
+  }
+
+  unregisterClient(clientId) {
+    this.clientZones.delete(clientId);
   }
 
   getImage(imageKey, options, callback) {
@@ -285,9 +303,18 @@ class RoonHandler {
     this.zonesUpdateCallback = callback;
   }
 
-  notifyUpdate() {
+  notifyClientUpdate(clientId) {
     if (this.updateCallback) {
-      this.updateCallback(this.getState());
+      this.updateCallback(clientId, this.getState(clientId));
+    }
+  }
+
+  notifyAllClientsUpdate() {
+    if (this.updateCallback) {
+      // Notify all connected clients
+      for (const clientId of this.clientZones.keys()) {
+        this.updateCallback(clientId, this.getState(clientId));
+      }
     }
   }
 

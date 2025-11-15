@@ -63,14 +63,25 @@ app.get('/api/zones', (req, res) => {
   res.json(roonHandler.getZones());
 });
 
+// Generate unique client ID
+function generateClientId() {
+  return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
 // WebSocket connection handling
 wss.on('connection', (ws) => {
-  console.log('Client connected');
+  const clientId = generateClientId();
+  ws.clientId = clientId;
+
+  console.log('Client connected:', clientId);
+
+  // Register client with RoonHandler
+  roonHandler.registerClient(clientId);
 
   // Send initial state
   ws.send(JSON.stringify({
     type: 'init',
-    data: roonHandler.getState()
+    data: roonHandler.getState(clientId)
   }));
 
   // Send zones list
@@ -90,7 +101,8 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', (code, reason) => {
-    console.log('Client disconnected', code, reason.toString());
+    console.log('Client disconnected:', clientId, code, reason.toString());
+    roonHandler.unregisterClient(clientId);
   });
 
   ws.on('error', (error) => {
@@ -101,26 +113,27 @@ wss.on('connection', (ws) => {
 // Handle client commands
 function handleClientMessage(ws, data) {
   const { type, payload } = data;
+  const clientId = ws.clientId;
 
   switch (type) {
     case 'control':
-      roonHandler.control(payload.command);
+      roonHandler.control(clientId, payload.command);
       break;
 
     case 'volume':
-      roonHandler.setVolume(payload.mode, payload.value);
+      roonHandler.setVolume(clientId, payload.mode, payload.value);
       break;
 
     case 'select_zone':
-      roonHandler.selectZone(payload.zoneId);
+      roonHandler.selectZone(clientId, payload.zoneId);
       break;
 
     case 'mute':
-      roonHandler.mute(payload.action);
+      roonHandler.mute(clientId, payload.action);
       break;
 
     case 'seek':
-      roonHandler.seek(payload.seconds);
+      roonHandler.seek(clientId, payload.seconds);
       break;
 
     default:
@@ -128,7 +141,16 @@ function handleClientMessage(ws, data) {
   }
 }
 
-// Broadcast updates to all connected clients
+// Send update to specific client
+function sendClientUpdate(clientId, data) {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN && client.clientId === clientId) {
+      client.send(JSON.stringify(data));
+    }
+  });
+}
+
+// Broadcast to all connected clients
 function broadcastUpdate(data) {
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
@@ -138,8 +160,8 @@ function broadcastUpdate(data) {
 }
 
 // Register callback for Roon state updates
-roonHandler.onUpdate((state) => {
-  broadcastUpdate({
+roonHandler.onUpdate((clientId, state) => {
+  sendClientUpdate(clientId, {
     type: 'update',
     data: state
   });
