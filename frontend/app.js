@@ -88,7 +88,22 @@ function handleMessage(message) {
   switch (message.type) {
     case 'init':
     case 'update':
+      // When receiving server update, trust the server's seek position
+      // This prevents drift from local increments
+      const oldState = state;
       state = message.data;
+
+      // If we're playing and received a new seek position, restart progress from server time
+      if (state && state.nowPlaying && oldState && oldState.nowPlaying) {
+        if (state.nowPlaying.seek_position !== oldState.nowPlaying.seek_position) {
+          // Server sent a different position, sync to it
+          if (state.state === 'playing') {
+            stopProgressUpdates();
+            startProgressUpdates();
+          }
+        }
+      }
+
       updateUI();
       break;
 
