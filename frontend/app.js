@@ -44,13 +44,21 @@ const elements = {
 
 // Connect to WebSocket server
 function connect() {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}`;
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+    return;
+  }
 
-  ws = new WebSocket(wsUrl);
+  // Use explicit WebSocket URL if available (for iOS compatibility)
+  const wsUrl = window.WEBSOCKET_URL || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+
+  try {
+    ws = new WebSocket(wsUrl);
+  } catch (error) {
+    console.error('Error creating WebSocket:', error);
+    return;
+  }
 
   ws.onopen = () => {
-    console.log('Connected to server');
     updateConnectionStatus(true);
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout);
@@ -67,15 +75,15 @@ function connect() {
     }
   };
 
-  ws.onclose = () => {
-    console.log('Disconnected from server');
+  ws.onclose = (event) => {
     updateConnectionStatus(false);
 
     // Attempt to reconnect after 3 seconds
-    reconnectTimeout = setTimeout(() => {
-      console.log('Attempting to reconnect...');
-      connect();
-    }, 3000);
+    if (!reconnectTimeout) {
+      reconnectTimeout = setTimeout(() => {
+        connect();
+      }, 3000);
+    }
   };
 
   ws.onerror = (error) => {
@@ -442,7 +450,6 @@ function handleSeekEnd(e) {
   state.nowPlaying.seek_position = Math.floor(seekPosition);
   updateProgress();
 
-  console.log('Seeking to:', Math.floor(seekPosition), 'seconds');
   seek(Math.floor(seekPosition));
 
   // Resume automatic progress updates if playing
@@ -521,9 +528,7 @@ window.addEventListener('load', () => {
 });
 
 // Cleanup on page unload
+// Note: Removed ws.close() from beforeunload as it was causing issues on iOS Safari
 window.addEventListener('beforeunload', () => {
   stopProgressUpdates();
-  if (ws) {
-    ws.close();
-  }
 });
