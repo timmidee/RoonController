@@ -6,15 +6,34 @@ const RoonHandler = require('./roon-handler');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({
+  server,
+  perMessageDeflate: false, // Disable compression for iOS compatibility
+  clientTracking: true
+});
 
 const PORT = process.env.PORT || 3000;
 
 // Initialize Roon handler
 const roonHandler = new RoonHandler();
 
-// Serve static files from frontend directory
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Log all incoming requests
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url} from ${req.ip}`);
+  next();
+});
+
+// Serve static files from frontend directory with cache control
+app.use(express.static(path.join(__dirname, '../frontend'), {
+  setHeaders: (res, filepath) => {
+    // Prevent caching of HTML, JS, and CSS files
+    if (filepath.endsWith('.html') || filepath.endsWith('.js') || filepath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // API endpoint for album artwork
 app.get('/api/image/:imageKey', (req, res) => {
@@ -70,8 +89,12 @@ wss.on('connection', (ws) => {
     }
   });
 
-  ws.on('close', () => {
-    console.log('Client disconnected');
+  ws.on('close', (code, reason) => {
+    console.log('Client disconnected', code, reason.toString());
+  });
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
   });
 });
 
@@ -129,9 +152,10 @@ roonHandler.onZonesUpdate((zones) => {
   });
 });
 
-// Start server
-server.listen(PORT, () => {
+// Start server - explicitly bind to 0.0.0.0 to accept connections from any interface
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`RoonController server running on port ${PORT}`);
+  console.log(`Server is listening on all network interfaces`);
   console.log(`Open http://localhost:${PORT} in your browser`);
 });
 

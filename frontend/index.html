@@ -9,6 +9,10 @@
   <meta name="theme-color" content="#000000">
   <title>RoonController</title>
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Force explicit WebSocket URL for iOS compatibility
+    window.WEBSOCKET_URL = 'ws://' + window.location.hostname + ':' + (window.location.port || '3000');
+  </script>
 </head>
 <body>
   <div id="app">
