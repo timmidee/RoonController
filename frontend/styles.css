@@ -321,8 +321,8 @@ body {
 }
 
 .control-button {
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   background: var(--bg-secondary);
   border: none;
@@ -350,8 +350,8 @@ body {
 }
 
 .control-button-primary {
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   background: var(--text-primary);
   color: var(--bg-primary);
 }
