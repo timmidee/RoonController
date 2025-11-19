@@ -10,6 +10,10 @@ let inactivityTimeout = null;
 let isAwayMode = false;
 const INACTIVITY_DELAY = 5000; // 5 seconds
 
+// Volume overlay for away mode
+let volumeOverlayTimeout = null;
+let lastVolumeValue = null;
+
 // DOM elements
 const elements = {
   status: document.getElementById('connection-status'),
@@ -39,7 +43,10 @@ const elements = {
   btnMute: document.getElementById('btn-mute'),
   iconMute: document.getElementById('icon-mute'),
   iconUnmute: document.getElementById('icon-unmute'),
-  volumeContainer: document.getElementById('volume-container')
+  volumeContainer: document.getElementById('volume-container'),
+  volumeOverlay: document.getElementById('volume-overlay'),
+  volumeOverlayFill: document.getElementById('volume-overlay-fill'),
+  volumeOverlayText: document.getElementById('volume-overlay-text')
 };
 
 // Connect to WebSocket server
@@ -223,6 +230,12 @@ function updateUI() {
       elements.iconMute.classList.add('hidden');
       elements.iconUnmute.classList.remove('hidden');
     }
+
+    // Show volume overlay in away mode if volume changed from server
+    if (isAwayMode && lastVolumeValue !== null && lastVolumeValue !== volume) {
+      showVolumeOverlay(volume, state.volume.min, state.volume.max);
+    }
+    lastVolumeValue = volume;
   } else {
     // Disable volume controls for fixed volume zones
     elements.volumeContainer.classList.add('disabled');
@@ -389,8 +402,8 @@ elements.volumeSlider.addEventListener('input', (e) => {
   resetInactivityTimer();
 });
 
-elements.btnVolumeDown.addEventListener('click', () => adjustVolume(-2.5));
-elements.btnVolumeUp.addEventListener('click', () => adjustVolume(2.5));
+elements.btnVolumeDown.addEventListener('click', () => adjustVolume(-1));
+elements.btnVolumeUp.addEventListener('click', () => adjustVolume(1));
 elements.btnMute.addEventListener('click', toggleMute);
 
 elements.zoneButton.addEventListener('click', (e) => {
@@ -486,6 +499,28 @@ function enterAwayMode() {
 function exitAwayMode() {
   isAwayMode = false;
   document.body.classList.remove('away-mode');
+}
+
+function showVolumeOverlay(volume, min, max) {
+  // Calculate percentage
+  const percentage = ((volume - min) / (max - min)) * 100;
+
+  // Update overlay fill and text
+  elements.volumeOverlayFill.style.width = `${percentage}%`;
+  elements.volumeOverlayText.textContent = `${Math.round(volume)}%`;
+
+  // Show overlay
+  elements.volumeOverlay.classList.remove('hidden');
+
+  // Clear existing timeout
+  if (volumeOverlayTimeout) {
+    clearTimeout(volumeOverlayTimeout);
+  }
+
+  // Hide overlay after 2 seconds
+  volumeOverlayTimeout = setTimeout(() => {
+    elements.volumeOverlay.classList.add('hidden');
+  }, 2000);
 }
 
 function resetInactivityTimer() {
