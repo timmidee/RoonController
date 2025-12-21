@@ -84,6 +84,7 @@ function connect() {
 
   ws.onclose = (event) => {
     updateConnectionStatus(false);
+    stopProgressUpdates(); // Stop timer when disconnected
 
     // Attempt to reconnect after 3 seconds
     if (!reconnectTimeout) {
