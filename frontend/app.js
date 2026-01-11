@@ -14,6 +14,26 @@ const INACTIVITY_DELAY = 5000; // 5 seconds
 let volumeOverlayTimeout = null;
 let lastVolumeValue = null;
 
+// Persistent client identification
+const CLIENT_ID_KEY = 'roon_controller_client_id';
+
+function getOrCreateClientId() {
+  // First, check for URL parameter (survives kiosk app restrictions)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlClientId = urlParams.get('client');
+  if (urlClientId) {
+    return `client_${urlClientId}`;
+  }
+
+  // Fall back to localStorage for regular browsers
+  let clientId = localStorage.getItem(CLIENT_ID_KEY);
+  if (!clientId) {
+    clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem(CLIENT_ID_KEY, clientId);
+  }
+  return clientId;
+}
+
 // DOM elements
 const elements = {
   status: document.getElementById('connection-status'),
@@ -67,6 +87,13 @@ function connect() {
 
   ws.onopen = () => {
     updateConnectionStatus(true);
+
+    // Send client identification immediately
+    ws.send(JSON.stringify({
+      type: 'identify',
+      payload: { clientId: getOrCreateClientId() }
+    }));
+
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout);
       reconnectTimeout = null;

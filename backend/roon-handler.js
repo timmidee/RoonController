@@ -12,6 +12,7 @@ class RoonHandler {
     this.clientZones = new Map(); // Map of clientId -> zoneId
     this.updateCallback = null;
     this.zonesUpdateCallback = null;
+    this.ZONE_PREFS_KEY = 'client_zone_preferences'; // Key for config.json
 
     // Initialize Roon API
     this.roon = new RoonApi({
@@ -57,6 +58,7 @@ class RoonHandler {
   }
 
   start() {
+    this.loadZonePreferences(); // Load saved zone preferences
     this.svcStatus.set_status('Starting...', false);
     this.roon.start_discovery();
   }
@@ -96,6 +98,7 @@ class RoonHandler {
           this.zones = this.zones.filter(z => !removedIds.includes(z.zone_id));
 
           // Remove zone assignments for removed zones and reassign to first zone
+          let prefsChanged = false;
           for (const [clientId, zoneId] of this.clientZones.entries()) {
             if (removedIds.includes(zoneId)) {
               if (this.zones.length > 0) {
@@ -103,7 +106,12 @@ class RoonHandler {
               } else {
                 this.clientZones.delete(clientId);
               }
+              prefsChanged = true;
             }
+          }
+
+          if (prefsChanged) {
+            this.saveZonePreferences(); // Persist the reassignments
           }
 
           this.notifyAllClientsUpdate();
@@ -246,7 +254,9 @@ class RoonHandler {
     const zone = this.zones.find(z => z.zone_id === zoneId);
     if (zone) {
       this.clientZones.set(clientId, zoneId);
+      this.saveZonePreferences(); // Persist the selection
       this.notifyClientUpdate(clientId);
+      console.log(`Client ${clientId} selected zone: ${zone.display_name}`);
     }
   }
 
@@ -269,14 +279,27 @@ class RoonHandler {
   }
 
   registerClient(clientId) {
-    // Assign first zone by default if available
-    if (this.zones.length > 0 && !this.clientZones.has(clientId)) {
+    // Check if client has a saved zone preference that still exists
+    const savedZoneId = this.clientZones.get(clientId);
+    if (savedZoneId) {
+      const zoneExists = this.zones.some(z => z.zone_id === savedZoneId);
+      if (zoneExists) {
+        console.log(`Restored zone for client ${clientId}`);
+        return; // Zone preference already in map and valid
+      }
+    }
+
+    // New client or saved zone no longer exists: assign first zone by default
+    if (this.zones.length > 0) {
       this.clientZones.set(clientId, this.zones[0].zone_id);
+      this.saveZonePreferences(); // Persist the assignment
+      console.log(`Assigned first zone to client ${clientId}`);
     }
   }
 
   unregisterClient(clientId) {
-    this.clientZones.delete(clientId);
+    // Do NOT delete zone preference - we want it to persist for reconnections
+    console.log(`Client ${clientId} disconnected (zone preference retained)`);
   }
 
   getImage(imageKey, options, callback) {
@@ -321,6 +344,31 @@ class RoonHandler {
   notifyZonesUpdate() {
     if (this.zonesUpdateCallback) {
       this.zonesUpdateCallback(this.getZones());
+    }
+  }
+
+  // Load zone preferences from config.json into memory
+  loadZonePreferences() {
+    try {
+      const prefs = this.roon.load_config(this.ZONE_PREFS_KEY);
+      if (prefs && typeof prefs === 'object') {
+        for (const [clientId, zoneId] of Object.entries(prefs)) {
+          this.clientZones.set(clientId, zoneId);
+        }
+        console.log(`Loaded zone preferences for ${this.clientZones.size} clients`);
+      }
+    } catch (error) {
+      console.error('Error loading zone preferences:', error);
+    }
+  }
+
+  // Save zone preferences from memory to config.json
+  saveZonePreferences() {
+    try {
+      const prefs = Object.fromEntries(this.clientZones);
+      this.roon.save_config(this.ZONE_PREFS_KEY, prefs);
+    } catch (error) {
+      console.error('Error saving zone preferences:', error);
     }
   }
 }

@@ -70,30 +70,48 @@ function generateClientId() {
 
 // WebSocket connection handling
 wss.on('connection', (ws) => {
-  const clientId = generateClientId();
-  ws.clientId = clientId;
+  // Don't assign clientId immediately - wait for 'identify' message
+  ws.clientId = null;
+  ws.isIdentified = false;
 
-  console.log('Client connected:', clientId);
-
-  // Register client with RoonHandler
-  roonHandler.registerClient(clientId);
-
-  // Send initial state
-  ws.send(JSON.stringify({
-    type: 'init',
-    data: roonHandler.getState(clientId)
-  }));
-
-  // Send zones list
-  ws.send(JSON.stringify({
-    type: 'zones',
-    data: roonHandler.getZones()
-  }));
+  console.log('Client connected, awaiting identification');
 
   // Handle incoming messages
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
+
+      // Handle identification as first message
+      if (data.type === 'identify' && !ws.isIdentified) {
+        const clientId = data.payload.clientId;
+        ws.clientId = clientId;
+        ws.isIdentified = true;
+
+        console.log('Client identified:', clientId);
+
+        // Register client with RoonHandler (will restore saved zone if available)
+        roonHandler.registerClient(clientId);
+
+        // Send initial state (with restored zone if applicable)
+        ws.send(JSON.stringify({
+          type: 'init',
+          data: roonHandler.getState(clientId)
+        }));
+
+        // Send zones list
+        ws.send(JSON.stringify({
+          type: 'zones',
+          data: roonHandler.getZones()
+        }));
+        return;
+      }
+
+      // Ignore other messages until identified
+      if (!ws.isIdentified) {
+        console.warn('Message received before identification');
+        return;
+      }
+
       handleClientMessage(ws, data);
     } catch (error) {
       console.error('Error parsing message:', error);
@@ -101,8 +119,10 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', (code, reason) => {
-    console.log('Client disconnected:', clientId, code, reason.toString());
-    roonHandler.unregisterClient(clientId);
+    if (ws.clientId) {
+      console.log('Client disconnected:', ws.clientId, code, reason.toString());
+      // Note: We do NOT unregister - zone preference persists
+    }
   });
 
   ws.on('error', (error) => {

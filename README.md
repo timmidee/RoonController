@@ -138,6 +138,24 @@ Edit `backend/server.js` or set the `PORT` environment variable:
 PORT=8080 npm start
 ```
 
+### Kiosk Mode / Dedicated Displays
+
+When using RoonController on a dedicated device (iPad kiosk app, wall-mounted tablet, etc.), the zone selection is remembered automatically via browser localStorage.
+
+However, some kiosk apps clear localStorage between sessions. In that case, add a `client` parameter to the URL to give the device a persistent identity:
+
+```
+http://your-server:3000/?client=living-room-ipad
+```
+
+This ensures the device always reconnects to its last-used zone, even if the kiosk app clears browser data.
+
+**Examples:**
+- `http://192.168.1.100:3000/?client=kitchen`
+- `http://roon-display.local:3000/?client=office-ipad`
+
+Each device should have a unique client name.
+
 ### Auto-Start on Raspberry Pi
 
 The setup script configures the app to start automatically. To manage it:
