@@ -188,6 +188,23 @@ roonHandler.onUpdate((clientId, state) => {
 });
 
 roonHandler.onZonesUpdate((zones) => {
+  // Auto-assign any identified clients that don't yet have a zone
+  if (zones.length > 0) {
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN && client.isIdentified && client.clientId) {
+        const hadZone = roonHandler.hasZonePreference(client.clientId);
+        roonHandler.registerClient(client.clientId);
+        if (!hadZone) {
+          // Client just got assigned for the first time — send state
+          client.send(JSON.stringify({
+            type: 'update',
+            data: roonHandler.getState(client.clientId)
+          }));
+        }
+      }
+    });
+  }
+
   broadcastUpdate({
     type: 'zones',
     data: zones

@@ -89,6 +89,15 @@ class RoonHandler {
 
         if (data.zones_added) {
           this.zones.push(...data.zones_added);
+          const addedIds = new Set(data.zones_added.map(z => z.zone_id));
+
+          // Notify clients whose preferred zone just came online
+          for (const [clientId, zoneId] of this.clientZones.entries()) {
+            if (addedIds.has(zoneId)) {
+              this.notifyClientUpdate(clientId);
+            }
+          }
+
           zonesListChanged = true;
         }
 
@@ -97,23 +106,8 @@ class RoonHandler {
           const removedIds = data.zones_removed;
           this.zones = this.zones.filter(z => !removedIds.includes(z.zone_id));
 
-          // Remove zone assignments for removed zones and reassign to first zone
-          let prefsChanged = false;
-          for (const [clientId, zoneId] of this.clientZones.entries()) {
-            if (removedIds.includes(zoneId)) {
-              if (this.zones.length > 0) {
-                this.clientZones.set(clientId, this.zones[0].zone_id);
-              } else {
-                this.clientZones.delete(clientId);
-              }
-              prefsChanged = true;
-            }
-          }
-
-          if (prefsChanged) {
-            this.saveZonePreferences(); // Persist the reassignments
-          }
-
+          // Keep client preferences as-is — the zone may come back.
+          // getState() already handles missing zones gracefully (returns null zone).
           this.notifyAllClientsUpdate();
           zonesListChanged = true;
         }
@@ -276,6 +270,10 @@ class RoonHandler {
 
     console.log(`Seeking to ${seconds} seconds in zone: ${currentZone.display_name}`);
     this.transport.seek(currentZone, 'absolute', seconds);
+  }
+
+  hasZonePreference(clientId) {
+    return this.clientZones.has(clientId);
   }
 
   registerClient(clientId) {
