@@ -141,7 +141,7 @@ function handleClientMessage(ws, data) {
       break;
 
     case 'volume':
-      roonHandler.setVolume(clientId, payload.mode, payload.value);
+      roonHandler.setVolume(clientId, payload.outputId, payload.mode, payload.value);
       break;
 
     case 'select_zone':
@@ -149,7 +149,7 @@ function handleClientMessage(ws, data) {
       break;
 
     case 'mute':
-      roonHandler.mute(clientId, payload.action);
+      roonHandler.mute(clientId, payload.outputId, payload.action);
       break;
 
     case 'seek':
@@ -188,14 +188,14 @@ roonHandler.onUpdate((clientId, state) => {
 });
 
 roonHandler.onZonesUpdate((zones) => {
-  // Auto-assign any identified clients that don't yet have a zone
+  // Auto-assign only clients that don't yet have any zone preference.
+  // Clients that already have a preference (even for an offline zone) are left
+  // alone — their zone restoration is handled by the zones_added path.
   if (zones.length > 0) {
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN && client.isIdentified && client.clientId) {
-        const hadZone = roonHandler.hasZonePreference(client.clientId);
-        roonHandler.registerClient(client.clientId);
-        if (!hadZone) {
-          // Client just got assigned for the first time — send state
+        if (!roonHandler.hasZonePreference(client.clientId)) {
+          roonHandler.registerClient(client.clientId);
           client.send(JSON.stringify({
             type: 'update',
             data: roonHandler.getState(client.clientId)

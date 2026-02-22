@@ -38,8 +38,8 @@ Messages are JSON with `{ type, payload/data }`.
 **Client → Server:**
 - `identify` — `{ clientId }` — must be first message
 - `control` — `{ command: 'play'|'pause'|'playpause'|'stop'|'previous'|'next' }`
-- `volume` — `{ mode: 'absolute', value: <number> }`
-- `mute` — `{ action: 'mute'|'unmute' }`
+- `volume` — `{ outputId, mode: 'absolute', value: <number> }`
+- `mute` — `{ outputId, action: 'mute'|'unmute' }`
 - `select_zone` — `{ zoneId }`
 - `seek` — `{ seconds: <number> }` (absolute)
 
@@ -56,12 +56,14 @@ Messages are JSON with `{ type, payload/data }`.
   nowPlaying: { title, artist, album, image_key, length, seek_position } | null,
   state: 'playing' | 'paused' | 'loading' | 'stopped',
   controls: { is_play_allowed, is_pause_allowed, is_previous_allowed, is_next_allowed, is_seek_allowed },
-  volume: { value, min, max, step, is_muted, type } | null
+  outputs: [{ output_id, display_name, volume: { value, min, max, step, is_muted, type } | null }]
 }
 ```
 
+`outputs` is always an array. Length 0 = no zone, 1 = single zone, 2+ = grouped zone. `volume: null` means the output has fixed volume.
+
 ### Away Mode
-After 5 seconds of no user input, the UI enters "away mode": hides controls, enlarges text for viewing from across the room. Any interaction exits it. If volume changes while in away mode (e.g. from a hardware remote), a large overlay appears briefly showing the new level.
+After 5 seconds of no user input, the UI enters "away mode": hides controls, enlarges text for viewing from across the room. Any interaction exits it. If any output's volume changes while in away mode (e.g. from a hardware remote), a large overlay appears briefly showing the new level. For grouped zones, the output name is shown above the percentage.
 
 ### Album Artwork
 Served via `GET /api/image/:imageKey?width=800&height=800`. The backend proxies this through `RoonApiImage.get_image()`. Images are cached by the browser (1 hour).

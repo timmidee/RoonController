@@ -12,7 +12,11 @@ const INACTIVITY_DELAY = 5000; // 5 seconds
 
 // Volume overlay for away mode
 let volumeOverlayTimeout = null;
-let lastVolumeValue = null;
+let lastOutputVolumes = new Map(); // outputId -> last seen volume value
+
+// Volume popup state
+let popupBuiltForOutputIds = null;
+const popupSlidersActive = new Set();
 
 // Persistent client identification
 const CLIENT_ID_KEY = 'roon_controller_client_id';
@@ -66,7 +70,11 @@ const elements = {
   volumeContainer: document.getElementById('volume-container'),
   volumeOverlay: document.getElementById('volume-overlay'),
   volumeOverlayFill: document.getElementById('volume-overlay-fill'),
-  volumeOverlayText: document.getElementById('volume-overlay-text')
+  volumeOverlayText: document.getElementById('volume-overlay-text'),
+  volumeOverlayOutput: document.getElementById('volume-overlay-output'),
+  volumePopupBtn: document.getElementById('btn-volume-popup'),
+  volumePopup: document.getElementById('volume-popup'),
+  volumePopupOutputs: document.getElementById('volume-popup-outputs')
 };
 
 // Connect to WebSocket server
@@ -233,49 +241,68 @@ function updateUI() {
   }
 
   // Update volume
-  if (state.volume) {
-    const volume = state.volume.value;
-    const isMuted = state.volume.is_muted;
+  const outputs = state.outputs || [];
 
-    // Enable volume controls
-    elements.volumeContainer.classList.remove('disabled');
-    elements.volumeSlider.disabled = false;
-    elements.btnVolumeDown.disabled = false;
-    elements.btnVolumeUp.disabled = false;
-    elements.btnMute.disabled = false;
-
-    elements.volumeSlider.value = volume;
-    elements.volumeSlider.min = state.volume.min;
-    elements.volumeSlider.max = state.volume.max;
-    elements.volumeFill.style.width = `${((volume - state.volume.min) / (state.volume.max - state.volume.min)) * 100}%`;
-    elements.volumeValue.textContent = `${Math.round(volume)}%`;
-
-    // Update mute icon
-    if (isMuted) {
-      elements.iconMute.classList.remove('hidden');
-      elements.iconUnmute.classList.add('hidden');
-    } else {
-      elements.iconMute.classList.add('hidden');
-      elements.iconUnmute.classList.remove('hidden');
-    }
-
-    // Show volume overlay in away mode if volume changed from server
-    if (isAwayMode && lastVolumeValue !== null && lastVolumeValue !== volume) {
-      showVolumeOverlay(volume, state.volume.min, state.volume.max);
-    }
-    lastVolumeValue = volume;
+  if (outputs.length > 1) {
+    // Multiple outputs (grouped zone) - use popup button
+    elements.volumeContainer.classList.add('hidden');
+    elements.volumePopupBtn.classList.remove('hidden');
+    syncVolumePopup();
   } else {
-    // Disable volume controls for fixed volume zones
-    elements.volumeContainer.classList.add('disabled');
-    elements.volumeSlider.disabled = true;
-    elements.btnVolumeDown.disabled = true;
-    elements.btnVolumeUp.disabled = true;
-    elements.btnMute.disabled = true;
-    elements.volumeValue.textContent = 'Fixed';
+    // Single or zero outputs - use inline controls
+    elements.volumeContainer.classList.remove('hidden');
+    elements.volumePopupBtn.classList.add('hidden');
+    closeVolumePopup();
 
-    // Set slider to 100% and hide thumb
-    elements.volumeSlider.value = 100;
-    elements.volumeFill.style.width = '100%';
+    const vol = outputs.length === 1 ? outputs[0].volume : null;
+    if (vol) {
+      elements.volumeContainer.classList.remove('disabled');
+      elements.volumeSlider.disabled = false;
+      elements.btnVolumeDown.disabled = false;
+      elements.btnVolumeUp.disabled = false;
+      elements.btnMute.disabled = false;
+
+      elements.volumeSlider.value = vol.value;
+      elements.volumeSlider.min = vol.min;
+      elements.volumeSlider.max = vol.max;
+      elements.volumeFill.style.width = `${((vol.value - vol.min) / (vol.max - vol.min)) * 100}%`;
+      elements.volumeValue.textContent = `${Math.round(vol.value)}%`;
+
+      if (vol.is_muted) {
+        elements.iconMute.classList.remove('hidden');
+        elements.iconUnmute.classList.add('hidden');
+      } else {
+        elements.iconMute.classList.add('hidden');
+        elements.iconUnmute.classList.remove('hidden');
+      }
+    } else {
+      elements.volumeContainer.classList.add('disabled');
+      elements.volumeSlider.disabled = true;
+      elements.btnVolumeDown.disabled = true;
+      elements.btnVolumeUp.disabled = true;
+      elements.btnMute.disabled = true;
+      elements.volumeValue.textContent = 'Fixed';
+      elements.volumeSlider.value = 100;
+      elements.volumeFill.style.width = '100%';
+    }
+  }
+
+  // Away mode overlay: fire for any output volume change
+  for (const output of outputs) {
+    if (output.volume) {
+      const lastVal = lastOutputVolumes.get(output.output_id);
+      if (isAwayMode && lastVal !== undefined && lastVal !== output.volume.value) {
+        showVolumeOverlay(output, output.volume.value, output.volume.min, output.volume.max);
+        break;
+      }
+    }
+  }
+
+  // Update tracked volume values
+  for (const output of outputs) {
+    if (output.volume) {
+      lastOutputVolumes.set(output.output_id, output.volume.value);
+    }
   }
 }
 
@@ -387,19 +414,25 @@ function next() {
   sendCommand('control', { command: 'next' });
 }
 
-function setVolume(value) {
-  sendCommand('volume', { mode: 'absolute', value: parseInt(value) });
+function setOutputVolume(outputId, value) {
+  sendCommand('volume', { outputId, mode: 'absolute', value: parseInt(value) });
+}
+
+function toggleOutputMute(outputId, action) {
+  sendCommand('mute', { outputId, action });
 }
 
 function adjustVolume(delta) {
-  if (!state || !state.volume) return;
-  const newValue = Math.max(state.volume.min, Math.min(state.volume.max, state.volume.value + delta));
-  setVolume(newValue);
+  if (!state || !state.outputs || state.outputs.length !== 1 || !state.outputs[0].volume) return;
+  const vol = state.outputs[0].volume;
+  const newValue = Math.max(vol.min, Math.min(vol.max, vol.value + delta));
+  setOutputVolume(state.outputs[0].output_id, newValue);
 }
 
 function toggleMute() {
-  const action = state && state.volume && state.volume.is_muted ? 'unmute' : 'mute';
-  sendCommand('mute', { action });
+  if (!state || !state.outputs || state.outputs.length !== 1) return;
+  const action = state.outputs[0].volume && state.outputs[0].volume.is_muted ? 'unmute' : 'mute';
+  toggleOutputMute(state.outputs[0].output_id, action);
 }
 
 function selectZone(zoneId) {
@@ -417,22 +450,28 @@ elements.btnNext.addEventListener('click', next);
 
 elements.volumeSlider.addEventListener('input', (e) => {
   const value = parseInt(e.target.value);
-  if (state && state.volume) {
-    const percentage = ((value - state.volume.min) / (state.volume.max - state.volume.min)) * 100;
+  if (state && state.outputs && state.outputs.length === 1 && state.outputs[0].volume) {
+    const vol = state.outputs[0].volume;
+    const percentage = ((value - vol.min) / (vol.max - vol.min)) * 100;
     elements.volumeFill.style.width = `${percentage}%`;
     elements.volumeValue.textContent = `${Math.round(value)}%`;
-
-    // Send volume change in real-time as user drags
-    setVolume(value);
+    setOutputVolume(state.outputs[0].output_id, value);
   }
-
-  // Prevent away mode while adjusting volume
   resetInactivityTimer();
 });
 
 elements.btnVolumeDown.addEventListener('click', () => adjustVolume(-1));
 elements.btnVolumeUp.addEventListener('click', () => adjustVolume(1));
 elements.btnMute.addEventListener('click', toggleMute);
+
+elements.volumePopupBtn.addEventListener('click', openVolumePopup);
+
+// Close popup when clicking the backdrop
+elements.volumePopup.addEventListener('click', (e) => {
+  if (e.target === elements.volumePopup) {
+    closeVolumePopup();
+  }
+});
 
 elements.zoneButton.addEventListener('click', (e) => {
   e.stopPropagation();
@@ -529,26 +568,200 @@ function exitAwayMode() {
   document.body.classList.remove('away-mode');
 }
 
-function showVolumeOverlay(volume, min, max) {
-  // Calculate percentage
+function showVolumeOverlay(output, volume, min, max) {
   const percentage = ((volume - min) / (max - min)) * 100;
 
-  // Update overlay fill and text
   elements.volumeOverlayFill.style.width = `${percentage}%`;
   elements.volumeOverlayText.textContent = `${Math.round(volume)}%`;
 
-  // Show overlay
+  // Show output name for grouped zones (multiple outputs)
+  const outputs = (state && state.outputs) || [];
+  if (outputs.length > 1) {
+    elements.volumeOverlayOutput.textContent = output.display_name;
+    elements.volumeOverlayOutput.classList.remove('hidden');
+  } else {
+    elements.volumeOverlayOutput.classList.add('hidden');
+  }
+
   elements.volumeOverlay.classList.remove('hidden');
 
-  // Clear existing timeout
   if (volumeOverlayTimeout) {
     clearTimeout(volumeOverlayTimeout);
   }
 
-  // Hide overlay after 2 seconds
   volumeOverlayTimeout = setTimeout(() => {
     elements.volumeOverlay.classList.add('hidden');
   }, 2000);
+}
+
+function openVolumePopup() {
+  syncVolumePopup();
+  elements.volumePopup.classList.remove('hidden');
+  resetInactivityTimer();
+}
+
+function closeVolumePopup() {
+  elements.volumePopup.classList.add('hidden');
+}
+
+function syncVolumePopup() {
+  const outputs = (state && state.outputs) || [];
+  const currentIds = outputs.map(o => o.output_id).join(',');
+  if (currentIds !== popupBuiltForOutputIds) {
+    buildVolumePopup();
+    popupBuiltForOutputIds = currentIds;
+  } else {
+    updateVolumePopupValues();
+  }
+}
+
+function buildVolumePopup() {
+  const outputs = (state && state.outputs) || [];
+  elements.volumePopupOutputs.innerHTML = '';
+  popupSlidersActive.clear();
+
+  outputs.forEach(output => {
+    const outputDiv = document.createElement('div');
+    outputDiv.className = 'volume-popup-output';
+    outputDiv.dataset.outputId = output.output_id;
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'volume-popup-output-name';
+    nameDiv.textContent = output.display_name;
+    outputDiv.appendChild(nameDiv);
+
+    if (output.volume) {
+      const vol = output.volume;
+      const pct = ((vol.value - vol.min) / (vol.max - vol.min)) * 100;
+
+      const controlsDiv = document.createElement('div');
+      controlsDiv.className = 'volume-popup-output-controls';
+
+      const downBtn = document.createElement('button');
+      downBtn.className = 'volume-button';
+      downBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/><path d="M13 8C13.6 8.6 14 9.3 14 10C14 10.7 13.6 11.4 13 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+      const sliderContainer = document.createElement('div');
+      sliderContainer.className = 'volume-slider-container';
+
+      const track = document.createElement('div');
+      track.className = 'volume-track';
+
+      const fill = document.createElement('div');
+      fill.className = 'volume-fill';
+      fill.style.width = `${pct}%`;
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.className = 'volume-slider';
+      slider.min = vol.min;
+      slider.max = vol.max;
+      slider.value = vol.value;
+
+      sliderContainer.appendChild(track);
+      sliderContainer.appendChild(fill);
+      sliderContainer.appendChild(slider);
+
+      const upBtn = document.createElement('button');
+      upBtn.className = 'volume-button';
+      upBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/><path d="M13 8C13.6 8.6 14 9.3 14 10C14 10.7 13.6 11.4 13 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.5 6C16.5 7 17.5 8.5 17.5 10C17.5 11.5 16.5 13 15.5 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+      const muteBtn = document.createElement('button');
+      muteBtn.className = 'volume-button';
+      muteBtn.dataset.role = 'mute';
+      muteBtn.innerHTML = vol.is_muted
+        ? `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/><path d="M15 7L19 11M19 7L15 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
+        : `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/></svg>`;
+
+      const valueSpan = document.createElement('span');
+      valueSpan.className = 'volume-value';
+      valueSpan.textContent = `${Math.round(vol.value)}%`;
+
+      controlsDiv.appendChild(downBtn);
+      controlsDiv.appendChild(sliderContainer);
+      controlsDiv.appendChild(upBtn);
+      controlsDiv.appendChild(muteBtn);
+      controlsDiv.appendChild(valueSpan);
+
+      slider.addEventListener('mousedown', () => popupSlidersActive.add(output.output_id));
+      slider.addEventListener('touchstart', () => popupSlidersActive.add(output.output_id), { passive: true });
+      slider.addEventListener('mouseup', () => popupSlidersActive.delete(output.output_id));
+      slider.addEventListener('touchend', () => popupSlidersActive.delete(output.output_id));
+
+      slider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        const current = state.outputs && state.outputs.find(o => o.output_id === output.output_id);
+        if (current && current.volume) {
+          const p = ((val - current.volume.min) / (current.volume.max - current.volume.min)) * 100;
+          fill.style.width = `${p}%`;
+          valueSpan.textContent = `${Math.round(val)}%`;
+        }
+        setOutputVolume(output.output_id, val);
+        resetInactivityTimer();
+      });
+
+      downBtn.addEventListener('click', () => {
+        const current = state.outputs && state.outputs.find(o => o.output_id === output.output_id);
+        if (current && current.volume) {
+          setOutputVolume(output.output_id, Math.max(current.volume.min, current.volume.value - 1));
+        }
+        resetInactivityTimer();
+      });
+
+      upBtn.addEventListener('click', () => {
+        const current = state.outputs && state.outputs.find(o => o.output_id === output.output_id);
+        if (current && current.volume) {
+          setOutputVolume(output.output_id, Math.min(current.volume.max, current.volume.value + 1));
+        }
+        resetInactivityTimer();
+      });
+
+      muteBtn.addEventListener('click', () => {
+        const current = state.outputs && state.outputs.find(o => o.output_id === output.output_id);
+        if (current && current.volume) {
+          toggleOutputMute(output.output_id, current.volume.is_muted ? 'unmute' : 'mute');
+        }
+        resetInactivityTimer();
+      });
+
+      outputDiv.appendChild(controlsDiv);
+    } else {
+      const fixedDiv = document.createElement('div');
+      fixedDiv.className = 'volume-popup-output-fixed';
+      fixedDiv.textContent = 'Fixed';
+      outputDiv.appendChild(fixedDiv);
+    }
+
+    elements.volumePopupOutputs.appendChild(outputDiv);
+  });
+}
+
+function updateVolumePopupValues() {
+  const outputs = (state && state.outputs) || [];
+  outputs.forEach(output => {
+    if (!output.volume) return;
+    if (popupSlidersActive.has(output.output_id)) return;
+
+    const outputDiv = elements.volumePopupOutputs.querySelector(`[data-output-id="${CSS.escape(output.output_id)}"]`);
+    if (!outputDiv) return;
+
+    const slider = outputDiv.querySelector('input[type="range"]');
+    const fill = outputDiv.querySelector('.volume-fill');
+    const valueSpan = outputDiv.querySelector('.volume-value');
+    const muteBtn = outputDiv.querySelector('[data-role="mute"]');
+
+    if (slider) slider.value = output.volume.value;
+    if (fill) {
+      const pct = ((output.volume.value - output.volume.min) / (output.volume.max - output.volume.min)) * 100;
+      fill.style.width = `${pct}%`;
+    }
+    if (valueSpan) valueSpan.textContent = `${Math.round(output.volume.value)}%`;
+    if (muteBtn) {
+      muteBtn.innerHTML = output.volume.is_muted
+        ? `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/><path d="M15 7L19 11M19 7L15 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
+        : `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7H7L11 3V17L7 13H3V7Z" fill="currentColor"/></svg>`;
+    }
+  });
 }
 
 function resetInactivityTimer() {

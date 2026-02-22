@@ -130,11 +130,9 @@ class RoonHandler {
         zone: null,
         nowPlaying: null,
         state: 'stopped',
-        volume: null
+        outputs: []
       };
     }
-
-    const output = currentZone.outputs && currentZone.outputs[0];
 
     return {
       connected: !!this.core,
@@ -158,14 +156,18 @@ class RoonHandler {
         is_next_allowed: currentZone.is_next_allowed,
         is_seek_allowed: currentZone.is_seek_allowed
       },
-      volume: output && output.volume ? {
-        value: output.volume.value,
-        min: output.volume.min,
-        max: output.volume.max,
-        step: output.volume.step,
-        is_muted: output.volume.is_muted,
-        type: output.volume.type
-      } : null
+      outputs: (currentZone.outputs || []).map(o => ({
+        output_id:    o.output_id,
+        display_name: o.display_name,
+        volume: o.volume ? {
+          value:    o.volume.value,
+          min:      o.volume.min,
+          max:      o.volume.max,
+          step:     o.volume.step,
+          is_muted: o.volume.is_muted,
+          type:     o.volume.type
+        } : null
+      }))
     };
   }
 
@@ -208,7 +210,7 @@ class RoonHandler {
     this.transport.control(currentZone, command);
   }
 
-  setVolume(clientId, mode, value) {
+  setVolume(clientId, outputId, mode, value) {
     const zoneId = this.clientZones.get(clientId);
     const currentZone = zoneId ? this.zones.find(z => z.zone_id === zoneId) : null;
 
@@ -217,16 +219,16 @@ class RoonHandler {
       return;
     }
 
-    const output = currentZone.outputs && currentZone.outputs[0];
+    const output = currentZone.outputs && currentZone.outputs.find(o => o.output_id === outputId);
     if (!output || !output.volume) {
-      console.warn('No volume control available for this zone');
+      console.warn('No volume control available for output:', outputId);
       return;
     }
 
     this.transport.change_volume(output, mode, value);
   }
 
-  mute(clientId, action) {
+  mute(clientId, outputId, action) {
     const zoneId = this.clientZones.get(clientId);
     const currentZone = zoneId ? this.zones.find(z => z.zone_id === zoneId) : null;
 
@@ -235,9 +237,9 @@ class RoonHandler {
       return;
     }
 
-    const output = currentZone.outputs && currentZone.outputs[0];
+    const output = currentZone.outputs && currentZone.outputs.find(o => o.output_id === outputId);
     if (!output || !output.volume) {
-      console.warn('No volume control available for this zone');
+      console.warn('No volume control available for output:', outputId);
       return;
     }
 
