@@ -18,6 +18,9 @@ let lastOutputVolumes = new Map(); // outputId -> last seen volume value
 let popupBuiltForOutputIds = null;
 const popupSlidersActive = new Set();
 
+// Placeholder HTML (captured once from the initial markup)
+let placeholderHTML = '';
+
 // Persistent client identification
 const CLIENT_ID_KEY = 'roon_controller_client_id';
 
@@ -179,35 +182,20 @@ function updateConnectionStatus(connected) {
   }
 }
 
-// Update UI with current state
-function updateUI() {
-  if (!state) return;
+// Update now playing info (track title, artist, album, artwork, progress, play/pause icons)
+function updateNowPlaying(s) {
+  if (s.nowPlaying) {
+    elements.trackTitle.textContent = s.nowPlaying.title;
+    elements.trackArtist.textContent = s.nowPlaying.artist;
+    elements.trackAlbum.textContent = s.nowPlaying.album || '';
 
-  // Update zone name
-  if (state.zone) {
-    elements.zoneName.textContent = state.zone.display_name;
-  }
-
-  // Update zone list to highlight the active zone
-  if (zones.length > 0) {
-    updateZoneList();
-  }
-
-  // Update now playing info
-  if (state.nowPlaying) {
-    elements.trackTitle.textContent = state.nowPlaying.title;
-    elements.trackArtist.textContent = state.nowPlaying.artist;
-    elements.trackAlbum.textContent = state.nowPlaying.album || '';
-
-    // Update artwork
-    if (state.nowPlaying.image_key) {
-      const imgUrl = `/api/image/${state.nowPlaying.image_key}?width=800&height=800`;
+    if (s.nowPlaying.image_key) {
+      const imgUrl = `/api/image/${s.nowPlaying.image_key}?width=800&height=800`;
       elements.artwork.innerHTML = `<img src="${imgUrl}" alt="Album Art">`;
     } else {
       showPlaceholder();
     }
 
-    // Update progress
     updateProgress();
   } else {
     elements.trackTitle.textContent = 'Not Playing';
@@ -219,11 +207,7 @@ function updateUI() {
     elements.timeRemaining.textContent = '0:00';
   }
 
-  // Update playback state
-  const isPlaying = state.state === 'playing';
-  const isPaused = state.state === 'paused';
-
-  if (isPlaying) {
+  if (s.state === 'playing') {
     elements.iconPlay.classList.add('hidden');
     elements.iconPause.classList.remove('hidden');
     startProgressUpdates();
@@ -233,23 +217,22 @@ function updateUI() {
     stopProgressUpdates();
   }
 
-  // Update control buttons
-  if (state.controls) {
-    elements.btnPlayPause.disabled = !(state.controls.is_play_allowed || state.controls.is_pause_allowed);
-    elements.btnPrevious.disabled = !state.controls.is_previous_allowed;
-    elements.btnNext.disabled = !state.controls.is_next_allowed;
+  if (s.controls) {
+    elements.btnPlayPause.disabled = !(s.controls.is_play_allowed || s.controls.is_pause_allowed);
+    elements.btnPrevious.disabled = !s.controls.is_previous_allowed;
+    elements.btnNext.disabled = !s.controls.is_next_allowed;
   }
+}
 
-  // Update volume
-  const outputs = state.outputs || [];
+// Update volume controls (single vs multi-output logic, slider values, mute icon)
+function updateVolume(s) {
+  const outputs = s.outputs || [];
 
   if (outputs.length > 1) {
-    // Multiple outputs (grouped zone) - use popup button
     elements.volumeContainer.classList.add('hidden');
     elements.volumePopupBtn.classList.remove('hidden');
     syncVolumePopup();
   } else {
-    // Single or zero outputs - use inline controls
     elements.volumeContainer.classList.remove('hidden');
     elements.volumePopupBtn.classList.add('hidden');
     closeVolumePopup();
@@ -286,8 +269,11 @@ function updateUI() {
       elements.volumeFill.style.width = '100%';
     }
   }
+}
 
-  // Away mode overlay: fire for any output volume change
+// Check if any output volume changed while in away mode and show overlay
+function checkAwayModeVolumeOverlay(s) {
+  const outputs = s.outputs || [];
   for (const output of outputs) {
     if (output.volume) {
       const lastVal = lastOutputVolumes.get(output.output_id);
@@ -297,8 +283,11 @@ function updateUI() {
       }
     }
   }
+}
 
-  // Update tracked volume values
+// Update the lastOutputVolumes map with current values
+function updateTrackedVolumes(s) {
+  const outputs = s.outputs || [];
   for (const output of outputs) {
     if (output.volume) {
       lastOutputVolumes.set(output.output_id, output.volume.value);
@@ -306,17 +295,27 @@ function updateUI() {
   }
 }
 
+// Update UI with current state
+function updateUI() {
+  if (!state) return;
+
+  if (state.zone) {
+    elements.zoneName.textContent = state.zone.display_name;
+  }
+
+  if (zones.length > 0) {
+    updateZoneList();
+  }
+
+  updateNowPlaying(state);
+  updateVolume(state);
+  checkAwayModeVolumeOverlay(state);
+  updateTrackedVolumes(state);
+}
+
 // Show artwork placeholder
 function showPlaceholder() {
-  elements.artwork.innerHTML = `
-    <div class="artwork-placeholder">
-      <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-        <path d="M40 10C23.43 10 10 23.43 10 40C10 56.57 23.43 70 40 70C56.57 70 70 56.57 70 40C70 23.43 56.57 10 40 10ZM40 65C26.19 65 15 53.81 15 40C15 26.19 26.19 15 40 15C53.81 15 65 26.19 65 40C65 53.81 53.81 65 40 65Z" fill="currentColor" opacity="0.3"/>
-        <path d="M40 25C31.72 25 25 31.72 25 40C25 48.28 31.72 55 40 55C48.28 55 55 48.28 55 40C55 31.72 48.28 25 40 25ZM40 50C34.48 50 30 45.52 30 40C30 34.48 34.48 30 40 30C45.52 30 50 34.48 50 40C50 45.52 45.52 50 40 50Z" fill="currentColor" opacity="0.5"/>
-        <circle cx="40" cy="40" r="5" fill="currentColor"/>
-      </svg>
-    </div>
-  `;
+  elements.artwork.innerHTML = placeholderHTML;
 }
 
 // Update progress bar
@@ -516,7 +515,6 @@ function handleSeekMove(e) {
 function handleSeekEnd(e) {
   if (!isDragging) return;
 
-  const wasDragging = dragStarted;
   isDragging = false;
   dragStarted = false;
 
@@ -798,6 +796,7 @@ function preventSleep() {
 
 // Initialize on page load
 window.addEventListener('load', () => {
+  placeholderHTML = elements.artwork.innerHTML;
   connect();
   preventSleep();
   resetInactivityTimer(); // Start inactivity tracking

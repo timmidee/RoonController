@@ -14,6 +14,13 @@
   --border-radius-md: 12px;
   --border-radius-lg: 20px;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --backdrop-blur: blur(20px);
+  --track-height: 4px;
+  --track-radius: 2px;
+  --text-line-height: var(--text-line-height);
+  --content-max-width: 500px;
+  --panel-max-width: 600px;
+  --artwork-max-width: 450px;
 }
 
 /* Reset and Base Styles */
@@ -40,9 +47,9 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  min-height: 100vh;
-  padding: 40px 24px;
-  gap: 24px;
+  height: 100vh;
+  padding: max(40px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(24px, env(safe-area-inset-left));
+  gap: clamp(12px, 2.5vw, 24px);
   transition: gap 0.4s ease, padding 0.4s ease;
 }
 
@@ -50,14 +57,14 @@ body {
 .connection-status {
   position: absolute;
   top: 20px;
-  left: 20px;
+  left: max(20px, env(safe-area-inset-left));
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 8px 12px;
   background: rgba(28, 28, 30, 0.8);
-  backdrop-filter: blur(20px);
+  backdrop-filter: var(--backdrop-blur);
   border-radius: var(--border-radius-sm);
   font-size: 12px;
   color: var(--text-secondary);
@@ -79,7 +86,7 @@ body {
 .zone-selector {
   position: absolute;
   top: 20px;
-  right: 20px;
+  right: max(20px, env(safe-area-inset-right));
   z-index: 100;
   transition: opacity 0.4s ease, visibility 0.4s ease;
   opacity: 1;
@@ -92,7 +99,7 @@ body {
   gap: 8px;
   padding: 8px 16px;
   background: rgba(28, 28, 30, 0.8);
-  backdrop-filter: blur(20px);
+  backdrop-filter: var(--backdrop-blur);
   border: 1px solid var(--separator);
   border-radius: var(--border-radius-md);
   color: var(--text-primary);
@@ -118,7 +125,7 @@ body {
   right: 0;
   min-width: 200px;
   background: rgba(28, 28, 30, 0.95);
-  backdrop-filter: blur(20px);
+  backdrop-filter: var(--backdrop-blur);
   border: 1px solid var(--separator);
   border-radius: var(--border-radius-md);
   box-shadow: 0 8px 24px var(--shadow);
@@ -174,9 +181,11 @@ body {
 /* Album Artwork */
 .artwork-container {
   width: 100%;
-  max-width: 450px;
+  max-width: var(--artwork-max-width);
   aspect-ratio: 1;
   margin-top: 40px;
+  flex-shrink: 1;
+  min-height: 0;
 }
 
 .artwork {
@@ -208,17 +217,17 @@ body {
 /* Now Playing Info */
 .now-playing {
   text-align: center;
-  max-width: 500px;
+  max-width: var(--content-max-width);
   width: 100%;
 }
 
 .track-title {
-  font-size: 32px;
+  font-size: clamp(20px, 4vw, 32px);
   font-weight: 600;
   margin-bottom: 8px;
-  line-height: 1.2;
+  line-height: var(--text-line-height);
   letter-spacing: -0.5px;
-  height: calc(32px * 1.2 * 2);
+  height: calc(clamp(20px, 4vw, 32px) * var(--text-line-height) * 2);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -232,15 +241,15 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.2;
+  line-height: var(--text-line-height);
 }
 
 .track-artist {
-  font-size: 22px;
+  font-size: clamp(14px, 2.8vw, 22px);
   color: var(--text-secondary);
   margin-bottom: 8px;
-  height: calc(22px * 1.2 * 2);
-  line-height: 1.2;
+  height: calc(clamp(14px, 2.8vw, 22px) * var(--text-line-height) * 2);
+  line-height: var(--text-line-height);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -254,13 +263,13 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.2;
+  line-height: var(--text-line-height);
 }
 
 .track-album {
-  font-size: 18px;
+  font-size: clamp(14px, 2.2vw, 18px);
   color: var(--text-tertiary);
-  line-height: 1.2;
+  line-height: var(--text-line-height);
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
@@ -275,7 +284,7 @@ body {
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 500px;
+  max-width: var(--content-max-width);
   transition: margin-top 0.4s ease;
 }
 
@@ -290,9 +299,9 @@ body {
 
 .progress-bar {
   flex: 1;
-  height: 4px;
+  height: var(--track-height);
   background: var(--bg-tertiary);
-  border-radius: 2px;
+  border-radius: var(--track-radius);
   overflow: hidden;
   position: relative;
   cursor: pointer;
@@ -306,7 +315,7 @@ body {
 .progress-fill {
   height: 100%;
   background: var(--text-primary);
-  border-radius: 2px;
+  border-radius: var(--track-radius);
   width: 0%;
   transition: width 0.3s linear;
 }
@@ -315,14 +324,14 @@ body {
 .controls {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: clamp(16px, 4vw, 32px);
   opacity: 1;
   transition: opacity 0.3s ease;
 }
 
 .control-button {
-  width: 80px;
-  height: 80px;
+  width: clamp(50px, 10vw, 80px);
+  height: clamp(50px, 10vw, 80px);
   border-radius: 50%;
   background: var(--bg-secondary);
   border: none;
@@ -350,8 +359,8 @@ body {
 }
 
 .control-button-primary {
-  width: 90px;
-  height: 90px;
+  width: clamp(70px, 12vw, 90px);
+  height: clamp(70px, 12vw, 90px);
   background: var(--text-primary);
   color: var(--bg-primary);
 }
@@ -374,7 +383,7 @@ body {
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 500px;
+  max-width: var(--content-max-width);
   margin: 0 auto;
   opacity: 1;
   transition: opacity 0.3s ease;
@@ -436,9 +445,9 @@ body {
   position: absolute;
   left: 0;
   width: 100%;
-  height: 4px;
+  height: var(--track-height);
   background: var(--bg-tertiary);
-  border-radius: 2px;
+  border-radius: var(--track-radius);
   pointer-events: none;
   z-index: 0;
 }
@@ -446,9 +455,9 @@ body {
 .volume-fill {
   position: absolute;
   left: 0;
-  height: 4px;
+  height: var(--track-height);
   background: var(--text-primary);
-  border-radius: 2px;
+  border-radius: var(--track-radius);
   pointer-events: none;
   transition: width 0.1s linear;
   z-index: 1;
@@ -456,11 +465,11 @@ body {
 
 .volume-slider {
   width: 100%;
-  height: 4px;
+  height: var(--track-height);
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
-  border-radius: 2px;
+  border-radius: var(--track-radius);
   outline: none;
   position: relative;
   z-index: 2;
@@ -469,9 +478,9 @@ body {
 
 .volume-slider::-webkit-slider-track {
   width: 100%;
-  height: 4px;
+  height: var(--track-height);
   background: transparent;
-  border-radius: 2px;
+  border-radius: var(--track-radius);
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -492,9 +501,9 @@ body {
 
 .volume-slider::-moz-range-track {
   width: 100%;
-  height: 4px;
+  height: var(--track-height);
   background: transparent;
-  border-radius: 2px;
+  border-radius: var(--track-radius);
 }
 
 .volume-slider::-moz-range-thumb {
@@ -527,51 +536,16 @@ body {
   border: 3px solid var(--bg-secondary);
 }
 
-/* Responsive Design */
+/* Responsive Design - small screen artwork constraint */
 @media (max-width: 600px) {
-  #app {
-    padding: 24px 16px;
-    gap: 16px;
-  }
-
   .artwork-container {
     max-width: 300px;
-  }
-
-  .track-title {
-    font-size: 24px;
-  }
-
-  .track-artist {
-    font-size: 16px;
-  }
-
-  .controls {
-    gap: 24px;
-  }
-
-  .control-button {
-    width: 50px;
-    height: 50px;
-  }
-
-  .control-button-primary {
-    width: 70px;
-    height: 70px;
   }
 }
 
 @media (max-width: 400px) {
   .artwork-container {
     max-width: 250px;
-  }
-
-  .track-title {
-    font-size: 20px;
-  }
-
-  .track-artist {
-    font-size: 14px;
   }
 }
 
@@ -592,38 +566,28 @@ body {
   flex-shrink: 0;
 }
 
-/* Create spacing between sections using margins in vertical mode */
-@media (orientation: portrait), (max-aspect-ratio: 1/1) {
+/* Vertical layout spacing (everything below the horizontal threshold) */
+@media (max-aspect-ratio: 6/5) {
   .artwork-container {
-    max-width: min(450px, 45vh);
+    max-width: min(var(--artwork-max-width), 35vh);
   }
 
-  .now-playing {
-    margin-bottom: auto;
+  .controls-wrapper {
+    gap: clamp(8px, 2vh, 24px);
+    justify-content: space-between;
   }
 
   .track-album {
     margin-bottom: 8px;
   }
 
-  .progress-container {
-    margin-top: auto;
-    margin-bottom: auto;
-  }
-
-  .controls {
-    margin-top: auto;
-    margin-bottom: auto;
-  }
-
   .volume-container {
-    margin-top: auto;
-    margin-bottom: 32px;
+    margin-bottom: clamp(24px, 4vh, 48px);
   }
 }
 
-/* Landscape Orientation - Wide and Low Screens */
-@media (orientation: landscape) and (max-height: 600px) {
+/* Landscape Orientation - Side-by-Side Layout */
+@media (min-aspect-ratio: 6/5) {
   #app {
     flex-direction: row;
     padding: 20px;
@@ -643,8 +607,8 @@ body {
 
   .controls-wrapper {
     align-items: flex-start;
-    flex: 0 0 600px;
-    width: 600px;
+    flex: 1 1 auto;
+    max-width: var(--panel-max-width);
     justify-content: center;
     gap: 32px;
   }
@@ -662,20 +626,6 @@ body {
   .now-playing .track-title,
   .now-playing .track-artist {
     justify-content: flex-start;
-  }
-
-  .track-title {
-    font-size: 32px;
-    height: calc(32px * 1.2 * 2);
-  }
-
-  .track-artist {
-    font-size: 24px;
-    height: calc(24px * 1.2 * 2);
-  }
-
-  .track-album {
-    font-size: 20px;
   }
 
   .progress-container,
@@ -710,8 +660,8 @@ body {
   }
 
   .artwork-container {
-    max-width: min(70vh, 450px);
-    width: min(70vh, 450px);
+    max-width: min(70vh, var(--artwork-max-width));
+    width: min(70vh, var(--artwork-max-width));
     flex-shrink: 0;
     align-self: center;
     margin-top: 0;
@@ -720,8 +670,8 @@ body {
 
   .controls-wrapper {
     align-items: flex-start;
-    flex: 0 0 600px;
-    width: 600px;
+    flex: 1 1 auto;
+    max-width: var(--panel-max-width);
     justify-content: center;
     gap: 32px;
   }
@@ -779,7 +729,7 @@ body {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(20px);
+  backdrop-filter: var(--backdrop-blur);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -799,7 +749,7 @@ body {
   align-items: center;
   gap: 24px;
   width: 80%;
-  max-width: 600px;
+  max-width: var(--panel-max-width);
 }
 
 .volume-overlay-header {
@@ -853,7 +803,6 @@ body.away-mode #app {
 }
 
 body.away-mode .controls-wrapper {
-  gap: 0;
   justify-content: center;
 }
 
@@ -868,24 +817,17 @@ body.away-mode .progress-container {
 
 body.away-mode .track-title {
   font-size: 40px;
-  height: calc(40px * 1.2 * 2);
+  height: calc(40px * var(--text-line-height) * 2);
 }
 
 body.away-mode .track-artist {
   font-size: 28px;
-  height: calc(28px * 1.2 * 2);
+  height: calc(28px * var(--text-line-height) * 2);
+  margin-bottom: 12px;
 }
 
 body.away-mode .track-album {
   font-size: 22px;
-}
-
-body.away-mode .track-artist {
-  margin-bottom: 12px;
-}
-
-body.away-mode .progress-container {
-  margin-top: 24px;
 }
 
 body.away-mode .progress-bar {
@@ -897,7 +839,7 @@ body.away-mode .time-label {
 }
 
 /* Away mode adjustments for landscape/wide screens */
-@media (orientation: landscape) and (max-height: 600px) {
+@media (min-aspect-ratio: 6/5) {
   body.away-mode #app {
     gap: 0;
     padding: 20px !important;
@@ -910,12 +852,12 @@ body.away-mode .time-label {
 
   body.away-mode .track-title {
     font-size: 48px;
-    height: calc(48px * 1.2 * 2);
+    height: calc(48px * var(--text-line-height) * 2);
   }
 
   body.away-mode .track-artist {
     font-size: 32px;
-    height: calc(32px * 1.2 * 2);
+    height: calc(32px * var(--text-line-height) * 2);
     margin-bottom: 12px;
   }
 
@@ -938,12 +880,12 @@ body.away-mode .time-label {
 
   body.away-mode .track-title {
     font-size: 48px;
-    height: calc(48px * 1.2 * 2);
+    height: calc(48px * var(--text-line-height) * 2);
   }
 
   body.away-mode .track-artist {
     font-size: 32px;
-    height: calc(32px * 1.2 * 2);
+    height: calc(32px * var(--text-line-height) * 2);
     margin-bottom: 12px;
   }
 
@@ -962,7 +904,7 @@ body.away-mode .time-label {
   padding: 16px 28px;
   min-height: 60px;
   background: rgba(28, 28, 30, 0.8);
-  backdrop-filter: blur(20px);
+  backdrop-filter: var(--backdrop-blur);
   border: 1px solid var(--separator);
   border-radius: var(--border-radius-md);
   color: var(--text-primary);
@@ -971,7 +913,7 @@ body.away-mode .time-label {
   cursor: pointer;
   transition: var(--transition);
   width: 100%;
-  max-width: 500px;
+  max-width: var(--content-max-width);
   touch-action: manipulation;
 }
 
@@ -984,14 +926,13 @@ body.away-mode .time-label {
 }
 
 /* Portrait layout spacing for popup button (mirrors volume-container) */
-@media (orientation: portrait), (max-aspect-ratio: 1/1) {
+@media (max-aspect-ratio: 6/5) {
   .volume-popup-button {
-    margin-top: auto;
-    margin-bottom: 32px;
+    margin-bottom: clamp(24px, 4vh, 48px);
   }
 }
 
-@media (orientation: landscape) and (max-height: 600px) {
+@media (min-aspect-ratio: 6/5) {
   .volume-popup-button {
     margin: 0;
     max-width: none;
@@ -1015,7 +956,7 @@ body.away-mode .time-label {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(20px);
+  backdrop-filter: var(--backdrop-blur);
   display: flex;
   align-items: center;
   justify-content: center;
