@@ -79,12 +79,14 @@ class RoonHandler {
           data.zones_changed.forEach(changedZone => {
             const index = this.zones.findIndex(z => z.zone_id === changedZone.zone_id);
             if (index !== -1) {
+              const old = this.zones[index];
+              if (old.state !== changedZone.state || old.display_name !== changedZone.display_name) {
+                zonesListChanged = true;
+              }
               this.zones[index] = changedZone;
             }
           });
-          // Notify all clients with their respective zones
           this.notifyAllClientsUpdate();
-          zonesListChanged = true;
         }
 
         if (data.zones_added) {
@@ -99,6 +101,16 @@ class RoonHandler {
           }
 
           zonesListChanged = true;
+        }
+
+        if (data.zones_seek_changed) {
+          data.zones_seek_changed.forEach(seekUpdate => {
+            const zone = this.zones.find(z => z.zone_id === seekUpdate.zone_id);
+            if (zone && zone.now_playing) {
+              zone.now_playing.seek_position = seekUpdate.seek_position;
+            }
+          });
+          this.notifyAllClientsUpdate();
         }
 
         if (data.zones_removed) {
