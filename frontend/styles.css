@@ -840,7 +840,7 @@ body.away-mode #btn-volume-popup {
   display: none;
 }
 
-body.away-mode #connection-status,
+body.away-mode #connection-status.connected,
 body.away-mode #zone-selector {
   opacity: 0;
   visibility: hidden;
