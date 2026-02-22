@@ -33,7 +33,7 @@ The interface features:
 
 ## Installation
 
-### On Your Development Machine (Mac/Linux/Windows)
+### On any machine in your network (Mac/Linux/Windows)
 
 1. **Install Node.js** (if not already installed)
 
@@ -80,31 +80,6 @@ The interface features:
 
 See [RASPBERRY_PI_SETUP.md](RASPBERRY_PI_SETUP.md) for detailed instructions.
 
-## Quick Start for Raspberry Pi
-
-1. **Copy files to Raspberry Pi**
-   ```bash
-   scp -r RoonController pi@raspberrypi.local:~/
-   ```
-
-2. **SSH into Raspberry Pi**
-   ```bash
-   ssh pi@raspberrypi.local
-   ```
-
-3. **Run the setup script**
-   ```bash
-   cd ~/RoonController
-   chmod +x setup-pi.sh
-   ./setup-pi.sh
-   ```
-
-4. **Reboot**
-   ```bash
-   sudo reboot
-   ```
-
-The display will automatically start in full-screen mode on boot.
 
 ## Usage
 
@@ -156,26 +131,6 @@ This ensures the device always reconnects to its last-used zone, even if the kio
 
 Each device should have a unique client name.
 
-### Auto-Start on Raspberry Pi
-
-The setup script configures the app to start automatically. To manage it:
-
-```bash
-# Check status
-systemctl --user status rooncontroller
-
-# Stop
-systemctl --user stop rooncontroller
-
-# Start
-systemctl --user start rooncontroller
-
-# Restart
-systemctl --user restart rooncontroller
-
-# View logs
-journalctl --user -u rooncontroller -f
-```
 
 ## Project Structure
 

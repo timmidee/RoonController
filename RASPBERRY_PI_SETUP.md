@@ -67,7 +67,7 @@ sudo apt-get upgrade -y
 
    From your computer:
    ```bash
-   scp -r /Users/timcornelissen/Desktop/RoonController pi@rooncontroller.local:~/
+   scp -r /path/to/RoonController pi@rooncontroller.local:~/
    ```
 
 2. **Run the setup script**
@@ -458,16 +458,21 @@ The app remembers the last selected zone. To change:
 
 ### Custom Port
 
+Set the `PORT` environment variable in the systemd service, then restart:
+
 ```bash
-nano ~/RoonController/backend/server.js
+systemctl --user edit rooncontroller
 ```
 
-Change `PORT` variable, then:
+Add under `[Service]`:
+```
+Environment=PORT=8080
+```
+
+Then update the URL in `start-display.sh` to match, and restart:
 ```bash
 systemctl --user restart rooncontroller
 ```
-
-Update Chromium URL in `start-display.sh`.
 
 ### Auto-dim at Night
 
